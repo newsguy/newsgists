@@ -31,7 +31,6 @@ public class CommonWords {
         } catch (IOException x) {
             LOG.error("IOException: %s%n", x);
         }
-
     }
 
     public boolean contains(String word) {

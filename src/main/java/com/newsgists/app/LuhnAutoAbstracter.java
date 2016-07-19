@@ -10,7 +10,6 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class LuhnAutoAbstracter implements AutoAbstracter {
 
@@ -33,7 +32,7 @@ public class LuhnAutoAbstracter implements AutoAbstracter {
     public String summarize(String text) {
         List<String> frequentWords = frequentWords(text.toLowerCase());
         List<String> sentences = breakIntoSentences(text);
-        sentences.stream().forEach(sentence -> LOG.info(sentence));
+        // sentences.stream().forEach(sentence -> LOG.info(sentence));
         Map<String, Double> sentenceScores = scoreSentences(sentences, frequentWords);
         List<String> byRankSentences = byRank(sentenceScores);
 
@@ -42,17 +41,19 @@ public class LuhnAutoAbstracter implements AutoAbstracter {
 
     private String byAppearanceSentences(List<String> byRankSentences, List<String> sentences) {
         List<String> byAppearanceSentences = new ArrayList<>();
-        sentences.stream().filter(sentence -> byRankSentences.contains(sentence)).forEach(sentence -> byAppearanceSentences.add(sentence));
+        sentences.stream()
+                .filter(sentence -> byRankSentences.contains(sentence))
+                .forEach(sentence -> byAppearanceSentences.add(sentence));
 
         return String.join(". ", byAppearanceSentences);
     }
 
     private Map<String, Double> scoreSentences(List<String> sentences, List<String> frequentWords) {
         Map<String, Double> sentenceScores = new HashMap<>();
-        int freqCount = 0, beg = 0, end = 0;
-        boolean beginning = false;
 
         for (String sentence : sentences) {
+            int freqCount = 0, beg = 0, end = 0;
+            boolean beginning = false;
             List<String> words = Arrays.asList(Pattern.compile("\\,|;|- ").matcher(sentence.toLowerCase()).replaceAll("").split(" "));
             for (String word : words) {
                 if (frequentWords.contains(word)) {
@@ -67,7 +68,7 @@ public class LuhnAutoAbstracter implements AutoAbstracter {
             List<String> sentenceSlice = words.subList(beg, end + 1);
             List<String> finalSentenceSlice = new ArrayList<>();
             sentenceSlice.stream()
-                    .filter(word -> commonWords.contains(word))
+                    .filter(word -> !commonWords.contains(word))
                     .forEach(word -> finalSentenceSlice.add(word));
             sentenceScores.put(sentence, Math.pow(new Double(freqCount), 2) / new Double(finalSentenceSlice.size()));
         }
@@ -82,7 +83,10 @@ public class LuhnAutoAbstracter implements AutoAbstracter {
         Collections.sort(scores, Collections.reverseOrder());
 
         scores.stream().forEach(score -> {
-            sentenceScores.entrySet().stream().filter(entry -> entry.getValue() == score).forEach(entry -> topRanked.add(entry.getKey()));
+            sentenceScores.entrySet()
+                    .stream()
+                    .filter(entry -> entry.getValue() == score)
+                    .forEach(entry -> topRanked.add(entry.getKey()));
         });
         int topTen = new Double(topRanked.size() * 0.05D).intValue();
 
@@ -91,11 +95,12 @@ public class LuhnAutoAbstracter implements AutoAbstracter {
 
     private List<String> frequentWords(String lowercaseText) {
         Map<String, Integer> frequentWords = new HashMap<>();
-        Pattern pattern = Pattern.compile("\\.|\\,|;|\\n|- ");
+        Pattern pattern = Pattern.compile("\\.|\\,|;|\n|- ");
         Matcher matcher = pattern.matcher(lowercaseText);
         lowercaseText = matcher.replaceAll("");
         List<String> words = Arrays.asList(lowercaseText.split(" "));
-        words.stream().filter(word -> commonWords.contains(word)).forEach(word -> {
+        LOG.info("Before filtering common words: " + words);
+        words.stream().filter(word -> !commonWords.contains(word)).forEach(word -> {
             if (frequentWords.containsKey(word))
                 frequentWords.put(word, frequentWords.get(word) + 1);
             else
@@ -107,18 +112,18 @@ public class LuhnAutoAbstracter implements AutoAbstracter {
 
         frequentWords.values().stream().forEach(count -> occurrenceCounts.add(count));
         Collections.sort(occurrenceCounts, Collections.reverseOrder());
-        int topTen = new Double(occurrenceCounts.size() * 0.05D).intValue();
+        int topTen = new Double(occurrenceCounts.size() * 0.1D + 0.5D).intValue();
 
-        occurrenceCounts.subList(0, topTen).stream()
-                .collect(Collectors.toList())
+        occurrenceCounts.subList(0, topTen)
                 .stream()
                 .forEach(count -> {
                     frequentWords.entrySet().stream()
                             .filter(entry -> entry.getValue() == count)
-                            .filter(entry -> topFrequent.contains(entry.getKey()))
+                            .filter(entry -> !topFrequent.contains(entry.getKey()))
                             .forEach(entry -> topFrequent.add(entry.getKey()));
                 });
 
+        LOG.info("Top ten frequent words: " + topFrequent);
         return topFrequent;
     }
 
@@ -139,7 +144,10 @@ public class LuhnAutoAbstracter implements AutoAbstracter {
             System.err.format("IOException: %s%n", x);
         }
 
-        return buffer.toString();
+        String text = buffer.toString();
+        text = text.replaceAll("- ", "");
+
+        return text;
     }
 
 }
